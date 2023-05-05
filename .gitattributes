@@ -1,0 +1,10 @@
+# Set default behavior to automatically normalize line endings.
+* text=auto
+
+# Explicit define text files types.
+*.rs text
+*.toml text
+
+# Export ignore all files that are only needed for git and CI (used when downloading the repository as a zip file).
+.gitattributes export-ignore
+.gitignore export-ignore
