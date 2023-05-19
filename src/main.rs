@@ -73,6 +73,7 @@ impl<'a> JpegStreamReader<'a> {
         match marker_code {
             x if x == JpegMarker::StartOfImage as i32 => self.dump_start_of_image(),
             x if x == JpegMarker::StartOfFrameJpegLS as i32 => self.dump_start_of_frame_jpegls(),
+            x if x == JpegMarker::StartOfScan as i32 => self.dump_start_of_scan(),
             _ => println!("{:>8} Marker 0xFF{:X}", self.get_start_offset(), marker_code)
         }
     }
@@ -144,6 +145,32 @@ impl<'a> JpegStreamReader<'a> {
             let sampling_factor = self.read_byte();
             println!("{:>8}   H and V sampling factor (Hi + Vi) = {} ({} + {})", position, sampling_factor, sampling_factor >> 4, sampling_factor & 0xF);
             println!("{:>8}   Quantization table (Tqi) [reserved, should be 0] = {}", self.get_position(), self.read_byte());
+        }
+    }
+
+    fn dump_start_of_scan(&mut self) {
+        println!("{:>8} Marker 0xFFDA: SOS (Start Of Scan), defined in ITU T.81/IEC 10918-1", self.get_start_offset());
+        println!("{:>8}  Size = {}", self.get_position(), self.read_u16_big_endian());
+        let component_count = self.read_byte();
+        println!("{:>8}  Component Count = {}", self.get_position(), component_count);
+        for _ in 0..component_count {
+            println!("{:>8}   Component identifier (Ci) = {}", self.get_position(), self.read_byte());
+            let mapping_table_selector = self.read_byte();
+            println!("{:>8}   Mapping table selector = {} {}", self.get_position(), mapping_table_selector, if mapping_table_selector == 0 {"(None)"} else {""});
+        }
+
+        println!("{:>8}  Near lossless (NEAR parameter) = {}", self.get_position(), self.read_byte());
+        let interleave_mode = self.read_byte();
+        println!("{:>8}  Interleave mode (ILV parameter) = {} ({})", self.get_position(), interleave_mode, JpegStreamReader::get_interleave_mode_name(interleave_mode));
+        println!("{:>8}  Point Transform = {}", self.get_position(), self.read_byte());
+    }
+
+    fn get_interleave_mode_name(interleave_mode: i32) -> &'static str {
+        match interleave_mode {
+            0 => "None",
+            1 => "Line",
+            2 => "Sample",
+            _ => "Unknown"
         }
     }
 }
