@@ -74,6 +74,8 @@ impl<'a> JpegStreamReader<'a> {
             x if x == JpegMarker::StartOfImage as i32 => self.dump_start_of_image(),
             x if x == JpegMarker::StartOfFrameJpegLS as i32 => self.dump_start_of_frame_jpegls(),
             x if x == JpegMarker::StartOfScan as i32 => self.dump_start_of_scan(),
+            x if x == JpegMarker::EndOfImage as i32 => self.dump_end_of_image(),
+            x if x == JpegMarker::JpegLSExtendedParameters as i32 => self.dump_jpegls_extended_parameters(),
             _ => println!("{:>8} Marker 0xFF{:X}", self.get_start_offset(), marker_code)
         }
     }
@@ -126,7 +128,11 @@ impl<'a> JpegStreamReader<'a> {
     }
 
     fn dump_start_of_image(&self) {
-        println!("{:>8} Marker 0xFFD8: SOI (Start Of Image), defined in ITU T.81/IEC 10918-1", self.get_start_offset());
+        println!("{:>8} Marker 0xFFD8: SOI (Start Of Image), defined in ITU T.81/IEC 10918-1", self.get_start_offset())
+    }
+
+    fn dump_end_of_image(&self) {
+        println!("{:>8} Marker 0xFFD9: EOI (End Of Image), defined in ITU T.81/IEC 10918-1", self.get_start_offset())
     }
 
     fn dump_start_of_frame_jpegls(&mut self) {
@@ -165,6 +171,26 @@ impl<'a> JpegStreamReader<'a> {
         println!("{:>8}  Point Transform = {}", self.get_position(), self.read_byte());
     }
 
+    fn dump_jpegls_extended_parameters(&mut self)
+    {
+        println!("{:>8} Marker 0xFFF8: LSE (JPEG-LS ), defined in ITU T.87/IEC 14495-1 JPEG LS", self.get_start_offset());
+        println!("{:>8}  Size = {}", self.get_position(), self.read_u16_big_endian());
+        let ep_type = self.read_byte();
+
+        print!("{:>8}  Type = {}", self.get_position(), ep_type);
+        match ep_type {
+            1 => {
+                println!(" (Preset coding parameters)");
+                println!("{:>8}  MaximumSampleValue = {1}", self.get_position(), self.read_u16_big_endian());
+                println!("{:>8}  Threshold 1 = {1}", self.get_position(), self.read_u16_big_endian());
+                println!("{:>8}  Threshold 2 = {1}", self.get_position(), self.read_u16_big_endian());
+                println!("{:>8}  Threshold 3 = {1}", self.get_position(), self.read_u16_big_endian());
+                println!("{:>8}  Reset value = {1}", self.get_position(), self.read_u16_big_endian());
+            }
+            _ =>  println!(" (Unknown")
+        }
+    }
+
     fn get_interleave_mode_name(interleave_mode: i32) -> &'static str {
         match interleave_mode {
             0 => "None",
@@ -188,8 +214,7 @@ fn main() -> io::Result<()> {
     println!("Dumping JPEG file: {:?}", args.path.to_str());
     println!("=============================================================================");
 
-    let f = File::open(args.path)?;
-    let mut reader = BufReader::new(f);
+    let mut reader = BufReader::new(File::open(args.path)?);
     let mut jpeg_stream_reader = JpegStreamReader::new(&mut reader);
 
     jpeg_stream_reader.dump()?;
